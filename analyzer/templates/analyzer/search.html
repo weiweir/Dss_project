@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Phân tích địa điểm</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            border-radius: 0.75rem;
+            box-shadow: 0 0.25rem 0.75rem rgba(0,0,0,0.05);
+        }
+        h2, h4 {
+            color: #0d6efd;
+        }
+        .range-output {
+            font-weight: bold;
+            color: #198754;
+        }
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+<div class="container py-5">
+    <h2 class="mb-4 text-center">📍 Phân tích địa điểm kinh doanh</h2>
+
+    <!-- FORM -->
+    <div class="card mb-5">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="row g-3">
+                {% for field in form %}
+                    <div class="col-md-6">
+                        {% if field.name == 'cluster_k' %}
+                            <label for="id_cluster_k" class="form-label fw-semibold">{{ field.label }}</label>
+                            <div class="d-flex align-items-center">
+                                <small class="me-2">1</small>
+                                <input type="range" min="1" max="10" step="1"
+                                       id="id_cluster_k" name="cluster_k"
+                                       class="form-range me-2"
+                                       value="{{ field.value|default_if_none:3 }}"
+                                       oninput="updateClusterLabel(this.value)">
+                                <small class="ms-2">10</small>
+                                <span class="badge bg-primary ms-3" id="cluster_k_display">
+                                    {{ field.value|default_if_none:3 }}
+                                </span>
+                            </div>
+                            {% if field.help_text %}
+                                <small class="form-text text-muted">{{ field.help_text }}</small>
+                            {% endif %}
+                        {% else %}
+                            <label for="{{ field.id_for_label }}" class="form-label fw-semibold">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="text-danger small">{{ field.errors }}</div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                {% endfor %}
+                </div>
+                <div class="mt-4 text-end">
+                    <button type="submit" class="btn btn-primary px-4">🔍 Phân tích</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if df %}
+        <!-- KẾT QUẢ -->
+        <h4 class="mb-3">Kết quả: {{ df|length }} địa điểm</h4>
+
+        <!-- RANGE FILTER CLUSTER -->
+        <div class="mb-4">
+            <label for="clusterRange" class="form-label">
+                <strong>🎯 Lọc theo cụm:</strong>
+                <div class="d-flex align-items-center">
+                    <small class="me-2">Tất cả</small>
+                    <input type="range" class="form-range me-2" min="-1" max="10" step="1"
+                           id="clusterRange" onchange="filterCluster()" value="-1">
+                    <small class="ms-2">{{ maxCluster }}</small>
+                    <span class="badge bg-success ms-3" id="clusterLabel">Tất cả</span>
+                </div>
+            </label>
+        </div>
+
+        <!-- BẢNG KẾT QUẢ -->
+        <div class="table-container table-responsive mb-4">
+            <table class="table table-bordered table-hover table-striped align-middle">
+                <thead class="table-primary sticky-top">
+                <tr>
+                    <th>Tên</th><th>Địa chỉ</th><th>Cụm</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- BẢN ĐỒ -->
+        <div id="map" style="height: 600px;" class="mb-5 border rounded"></div>
+
+        <!-- BIỂU ĐỒ & GỢI Ý -->
+        <div class="mt-5">
+            <h4>📊 Phân bố theo cụm</h4>
+            <canvas id="clusterChart" height="100"></canvas>
+            <div class="alert alert-success mt-3" id="suggestionBox"></div>
+        </div>
+
+        <!-- SCRIPT -->
+        <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+        <script>
+            function updateClusterLabel(val) {
+                const label = document.getElementById("cluster_k_display");
+                if (label) label.innerText = val;
+            }
+
+            const map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            L.circle([{{ center_lat }}, {{ center_lon }}], {
+                color: 'blue', fillColor: '#blue', fillOpacity: 0.1, radius: {{ radius }}
+            }).addTo(map).bindPopup("Bán kính {{ radius }}m");
+
+            const data = {{ df_json|safe }};
+            const colors = ['#dc3545', '#198754', '#0d6efd', '#fd7e14', '#6f42c1', '#795548', '#17a2b8', '#e83e8c'];
+            let markers = [];
+
+            function renderAll(clusterFilter = null) {
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+                const tbody = document.querySelector("table tbody");
+                tbody.innerHTML = "";
+                data.forEach(loc => {
+                    const cluster = loc.cluster ?? 0;
+                    const shouldShow = clusterFilter === null || cluster === clusterFilter;
+                    if (shouldShow) {
+                        const marker = L.circleMarker([loc.lat, loc.lon], {
+                            radius: 6,
+                            fillColor: colors[cluster % colors.length],
+                            color: '#000',
+                            weight: 1, opacity: 1, fillOpacity: 0.8
+                        }).addTo(map);
+                        marker.bindPopup(`<b>${loc.name}</b><br>${loc.address}`);
+                        markers.push(marker);
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>${loc.name}</td>
+                            <td>${loc.address}</td>
+                            <td><span class="badge" style="background-color:${colors[cluster % colors.length]}">${cluster}</span></td>
+                        `;
+                        tbody.appendChild(tr);
+                    }
+                });
+            }
+
+            function filterCluster() {
+                const slider = document.getElementById("clusterRange");
+                const label = document.getElementById("clusterLabel");
+                const val = parseInt(slider.value);
+                if (val === -1) {
+                    label.innerText = "Tất cả";
+                    renderAll(null);
+                } else {
+                    label.innerText = "Cụm " + val;
+                    renderAll(val);
+                }
+            }
+
+            const maxCluster = Math.max(...data.map(d => d.cluster ?? 0));
+            const slider = document.getElementById("clusterRange");
+            slider.max = maxCluster;
+            renderAll();
+
+            const clusterCounts = {};
+            data.forEach(loc => {
+                const cluster = loc.cluster ?? 0;
+                clusterCounts[cluster] = (clusterCounts[cluster] || 0) + 1;
+            });
+
+            const labels = Object.keys(clusterCounts).map(c => `Cụm ${c}`);
+            const values = Object.values(clusterCounts);
+            const chartColors = Object.keys(clusterCounts).map(c => colors[c % colors.length]);
+
+            const ctx = document.getElementById('clusterChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Số lượng địa điểm',
+                        data: values,
+                        backgroundColor: chartColors,
+                        borderColor: chartColors,
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, stepSize: 1 }
+                    }
+                }
+            });
+
+            const minCount = Math.min(...values);
+            const minIndex = values.indexOf(minCount);
+            const suggestCluster = Object.keys(clusterCounts)[minIndex];
+            document.getElementById("suggestionBox").innerText =
+                `✅ Cụm ${suggestCluster} có ít địa điểm nhất → nên mở mới ở đây`;
+        </script>
+    {% endif %}
+</div>
+</body>
+</html>
