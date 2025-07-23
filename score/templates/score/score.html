@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Chấm điểm địa điểm</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+</head>
+<body class="bg-light">
+<div class="container py-4">
+  <h2 class="text-center mb-4">📍 Chấm điểm địa điểm kinh doanh</h2>
+
+  <!-- FORM -->
+  <div class="card shadow mb-4">
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+          {{ form.address.label_tag }} {{ form.address }}
+        </div>
+        {% for field in form %}
+          {% if field.name != 'address' %}
+            <div class="mb-3">
+              <label class="form-label">{{ field.label }}:
+                <span class="badge bg-primary" id="{{ field.name }}_val">{{ field.value }}</span>
+              </label>
+              <input type="range"
+                     name="{{ field.name }}"
+                     id="{{ field.name }}"
+                     min="0" max="5" step="0.1"
+                     value="{{ field.value }}"
+                     class="form-range"
+                     oninput="document.getElementById('{{ field.name }}_val').innerText = this.value">
+            </div>
+          {% endif %}
+        {% endfor %}
+        <button type="submit" class="btn btn-success">🔍 Chấm điểm</button>
+      </form>
+    </div>
+  </div>
+
+  {% if df %}
+    <!-- Bộ lọc điểm -->
+    <div class="card mb-4 shadow-sm">
+      <div class="card-body">
+        <label class="form-label fw-bold">🎯 Lọc theo điểm số:
+          <span id="scoreVal" class="badge bg-primary">Từ 0</span>
+        </label>
+        <input type="range" id="scoreSlider" min="0" max="100" value="0" step="1" class="form-range"
+               oninput="document.getElementById('scoreVal').innerText = 'Từ ' + this.value">
+        <button onclick="filterByScore()" class="btn btn-outline-primary btn-sm mt-2">Lọc điểm</button>
+      </div>
+    </div>
+
+    <!-- Highlight cụm -->
+    <div class="alert alert-success">
+      ✅ Cụm có điểm trung bình cao nhất: 
+      <span class="badge bg-success" id="topCluster">Đang tính...</span>
+    </div>
+
+    <!-- Bảng -->
+    <div class="table-responsive mb-4" style="max-height: 400px; overflow-y: auto;">
+      <table class="table table-striped table-bordered align-middle">
+        <thead class="table-dark">
+        <tr>
+          <th>Tên</th>
+          <th>Địa chỉ</th>
+          <th>Điểm</th>
+          <th>Cụm</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- Bản đồ -->
+    <div id="map" class="border rounded" style="height: 500px;"></div>
+
+    <script>
+      const map = L.map('map').setView([{{ center_lat }}, {{ center_lon }}], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      L.circle([{{ center_lat }}, {{ center_lon }}], {
+        color: 'blue',
+        fillColor: '#blue',
+        fillOpacity: 0.1,
+        radius: 1000
+      }).addTo(map).bindPopup("Trung tâm tìm kiếm");
+
+      const data = {{ df|safe }};
+      const heatData = data.map(d => [d.lat, d.lon, d.score / 100]);
+      L.heatLayer(heatData, { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+
+      const clusterColors = [
+        "#FF5733", "#33C1FF", "#9B59B6", "#F1C40F", "#2ECC71",
+        "#E67E22", "#1ABC9C", "#E74C3C", "#7F8C8D", "#34495E"
+      ];
+
+      let markers = [];
+      function renderMarkers(minScore = 0) {
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        const tbody = document.querySelector("table tbody");
+        tbody.innerHTML = "";
+
+        data.forEach(d => {
+          if (d.score >= minScore) {
+            const color = clusterColors[d.cluster % clusterColors.length];
+            const m = L.circleMarker([d.lat, d.lon], {
+              radius: 6,
+              fillColor: color,
+              color: '#000',
+              weight: 1,
+              opacity: 1,
+              fillOpacity: 0.9
+            }).addTo(map);
+            m.bindPopup(`<b>${d.name}</b><br>Điểm: ${d.score}`);
+            markers.push(m);
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${d.name}</td>
+              <td>${d.address}</td>
+              <td><span class="badge bg-info text-dark">${d.score}</span></td>
+              <td><span class="badge text-light" style="background-color: ${color}">${d.cluster ?? '-'}</span></td>
+            `;
+            tbody.appendChild(tr);
+          }
+        });
+      }
+
+      function filterByScore() {
+        const val = parseInt(document.getElementById("scoreSlider").value);
+        renderMarkers(val);
+      }
+
+      renderMarkers();
+
+      const scoresByCluster = {};
+      data.forEach(d => {
+        const c = d.cluster ?? 0;
+        if (!scoresByCluster[c]) scoresByCluster[c] = [];
+        scoresByCluster[c].push(d.score);
+      });
+
+      let maxAvg = -1;
+      let bestCluster = '-';
+      for (const c in scoresByCluster) {
+        const avg = scoresByCluster[c].reduce((a, b) => a + b, 0) / scoresByCluster[c].length;
+        if (avg > maxAvg) {
+          maxAvg = avg;
+          bestCluster = c;
+        }
+      }
+
+      document.getElementById("topCluster").innerText = `Cụm ${bestCluster} (TB: ${maxAvg.toFixed(2)})`;
+    </script>
+  {% endif %}
+</div>
+</body>
+</html>
