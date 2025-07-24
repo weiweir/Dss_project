@@ -4,7 +4,7 @@ from .logic.geocode import get_coordinates
 from .logic.foursquare_api import get_venues
 from .logic.clustering import cluster_venues
 from .logic.osm import get_osm_counts
-# Import thêm hàm generate_conclusion
+
 from .logic.score_logic import calculate_score, generate_conclusion
 from geopy.distance import geodesic
 import pandas as pd
@@ -27,7 +27,7 @@ def score_view(request):
                 df = get_venues(lat, lon, radius=radius, category=category)
 
                 if not df.empty:
-                    # ... (Toàn bộ logic tính toán điểm số giữ nguyên)
+                   
                     competitors = []
                     for index, venue in df.iterrows():
                         count = 0
@@ -58,7 +58,7 @@ def score_view(request):
 
                     # --- GỌI HÀM SINH KẾT LUẬN ---
                     conclusion = generate_conclusion(df, osm_counts, radius)
-                    # --- HẾT PHẦN GỌI HÀM ---
+         
 
                     context.update({
                         'df': df.to_dict(orient='records'),
@@ -67,7 +67,7 @@ def score_view(request):
                         'osm_counts': osm_counts,
                         'address': address,
                         'radius': radius,
-                        'conclusion': conclusion, # Truyền kết luận sang template
+                        'conclusion': conclusion, 
                     })
 
         context['form'] = form 
