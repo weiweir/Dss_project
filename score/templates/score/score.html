@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hệ thống Hỗ trợ Quyết định Địa điểm</title>
+  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+  <style>
+    body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .card { border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .form-range::-webkit-slider-thumb { background-color: #0d6efd; }
+    .form-range::-moz-range-thumb { background-color: #0d6efd; }
+    #map { height: 600px; border-radius: 0.5rem; }
+    .table-responsive { max-height: 500px; }
+    .badge { font-size: 0.9em; }
+    .leaflet-popup-content-wrapper { border-radius: 0.5rem; }
+    
+    .table-hover tbody tr:hover {
+        background-color: #e2e6ea;
+        cursor: pointer;
+    }
+    .table-active-row {
+        background-color: #cfe2ff !important; 
+    }
+  </style>
+</head>
+<body>
+<div class="container py-5">
+  <header class="text-center mb-5">
+    <h1 class="display-5 fw-bold"><i class="bi bi-pin-map-fill text-primary"></i> DSS Chấm Điểm Địa Điểm</h1>
+    <p class="lead text-muted">Phân tích và tìm kiếm vị trí kinh doanh tiềm năng</p>
+  </header>
+
+  <div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+      <h5 class="mb-0"><i class="bi bi-gear-fill"></i> Bảng điều khiển</h5>
+    </div>
+    <div class="card-body">
+      <form method="post">
+        {% csrf_token %}
+        <div class="row mb-3">
+            <div class="col-md-12">
+                {{ form.address.label_tag }}
+                {{ form.address }}
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                {{ form.category.label_tag }}
+                {{ form.category }}
+            </div>
+            <div class="col-md-6">
+                {{ form.radius.label_tag }}
+                {{ form.radius }}
+            </div>
+        </div>
+        
+        <h6 class="mb-3">Tùy chỉnh trọng số:</h6>
+        <div class="row">
+          {% for field in form %}
+            {% if field.name not in "address,radius,category" %}
+              <div class="col-md-6 mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                <div class="d-flex align-items-center">
+                  <input type="range" name="{{ field.name }}" id="{{ field.id_for_label }}"
+                         min="0" max="5" step="0.1" value="{{ field.value|default:1 }}" class="form-range me-3"
+                         oninput="document.getElementById('{{ field.name }}_val').innerText = this.value">
+                  <span class="badge bg-primary rounded-pill" id="{{ field.name }}_val">{{ field.value|default:1 }}</span>
+                </div>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold"><i class="bi bi-search"></i> Phân Tích Ngay</button>
+      </form>
+    </div>
+  </div>
+</form>
+    </div>
+  </div>
+
+  {% if conclusion %}
+  <div class="card mb-4 border-primary">
+    <div class="card-header bg-primary bg-opacity-10 text-primary">
+        <h5 class="mb-0"><i class="bi bi-lightbulb-fill"></i> Gợi Ý và Kết Luận</h5>
+    </div>
+    <div class="card-body" style="white-space: pre-wrap;">
+        <p class="card-text">{{ conclusion|linebreaksbr }}</p>
+    </div>
+  </div>
+  {% endif %}
+  {% if df %}
+    <div class="row">
+      <div class="col-lg-5">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-compass"></i> Môi trường xung quanh</h5>
+                <p class="card-text">Dữ liệu trong bán kính <strong>{{ radius }}m</strong> từ <strong>{{ address }}</strong>:</p>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class="bi bi-building"></i> Khu dân cư
+                        <span class="badge bg-success rounded-pill">{{ osm_counts.residential }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class="bi bi-book"></i> Trường học
+                        <span class="badge bg-info rounded-pill">{{ osm_counts.schools }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-table"></i> Kết quả xếp hạng</h5>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Tên Địa Điểm</th>
+                  <th>Điểm</th>
+                  <th>Cụm</th>
+                </tr>
+              </thead>
+              <tbody>
+                </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-map"></i> Bản đồ nhiệt và phân cụm</h5>
+          </div>
+          <div id="map"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const centerLat = {{ center_lat }};
+      const centerLon = {{ center_lon }};
+      const searchRadius = {{ radius }};
+      const map = L.map('map').setView([centerLat, centerLon], 14);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      L.circle([centerLat, centerLon], {
+        color: '#0d6efd',
+        fillColor: '#0d6efd',
+        fillOpacity: 0.1,
+        radius: searchRadius 
+      }).addTo(map).bindPopup("<b>Trung tâm tìm kiếm</b>").openPopup();
+
+      const data = {{ df|safe }};
+      
+      const heatData = data.map(d => [d.lat, d.lon, d.score / 100]);
+      L.heatLayer(heatData, { radius: 25, blur: 15, maxZoom: 17, gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'} }).addTo(map);
+
+      const clusterColors = ["#e6194B", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#42d4f4", "#f032e6", "#bfef45", "#fabed4"];
+      const tbody = document.querySelector("table tbody");
+
+      // Lưu trữ các marker để dễ dàng truy cập và thao tác
+      const markers = []; 
+      let activeMarker = null; // Biến để theo dõi marker đang được chọn
+
+      data.forEach((d, index) => {
+        const color = d.hasOwnProperty('cluster') ? clusterColors[d.cluster % clusterColors.length] : '#808080';
+        
+        const marker = L.circleMarker([d.lat, d.lon], {
+          radius: 8,
+          fillColor: color,
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9
+        }).addTo(map);
+        
+        marker.bindPopup(`
+            <h5>${d.name}</h5>
+            <hr class="my-1">
+            <p class="mb-1"><strong>Điểm:</strong> <span class="badge" style="background-color:${color};">${d.score}</span></p>
+            <p class="mb-1"><strong>Đối thủ:</strong> ${d.competitors}</p>
+            <p class="mb-0"><em>${d.address}</em></p>
+        `);
+        
+        markers.push(marker); // Thêm marker vào mảng
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><b>${index + 1}</b></td>
+          <td>${d.name}</td>
+          <td><span class="badge" style="background-color:${color};">${d.score}</span></td>
+          <td>${d.hasOwnProperty('cluster') ? `Cụm ${d.cluster}` : '-'}</td>
+        `;
+        tbody.appendChild(tr);
+
+        // Thêm sự kiện click cho từng hàng trong bảng
+        tr.addEventListener('click', () => {
+          // Xóa lớp nổi bật khỏi tất cả các hàng
+          document.querySelectorAll('tbody tr').forEach(row => {
+            row.classList.remove('table-active-row');
+          });
+          // Thêm lớp nổi bật vào hàng vừa click
+          tr.classList.add('table-active-row');
+
+          // Đặt lại kiểu dáng cho marker đang hoạt động trước đó (nếu có)
+          if (activeMarker) {
+            activeMarker.setStyle({
+              radius: 8,
+              weight: 2,
+              color: '#fff'
+            });
+          }
+
+          // Làm nổi bật marker hiện tại
+          marker.setStyle({
+            radius: 12, 
+            weight: 4,  
+            color: '#0d6efd' 
+          });
+          marker.openPopup(); // Mở popup của marker
+          map.setView(marker.getLatLng(), 15); // Di chuyển bản đồ đến marker và phóng to
+
+          activeMarker = marker; // Cập nhật marker đang hoạt động
+        });
+      });
+    </script>
+  {% elif request.method == 'POST' %}
+    <div class="alert alert-warning text-center" role="alert">
+      <i class="bi bi-exclamation-triangle-fill"></i> Không tìm thấy địa chỉ hoặc không có địa điểm nào trong khu vực. Vui lòng thử lại với một địa chỉ khác.
+    </div>
+  {% endif %}
+</div>
+</body>
+</html>
