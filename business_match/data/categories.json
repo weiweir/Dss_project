@@ -1,0 +1,102 @@
+[
+  {
+    "id": "cafe",
+    "name": "Quán cafe"
+  },
+  {
+    "id": "milk_tea",
+    "name": "Trà sữa"
+  },
+  {
+    "id": "fast_food",
+    "name": "Ăn nhanh"
+  },
+  {
+    "id": "spa",
+    "name": "Spa làm đẹp"
+  },
+  {
+    "id": "nail",
+    "name": "Tiệm nail"
+  },
+  {
+    "id": "pharmacy",
+    "name": "Nhà thuốc"
+  },
+  {
+    "id": "grocery",
+    "name": "Tạp hóa / mini mart"
+  },
+  {
+    "id": "bookstore",
+    "name": "Nhà sách"
+  },
+  {
+    "id": "stationery",
+    "name": "Văn phòng phẩm"
+  },
+  {
+    "id": "electronics",
+    "name": "Điện thoại / phụ kiện"
+  },
+  {
+    "id": "clothing",
+    "name": "Thời trang"
+  },
+  {
+    "id": "hair_salon",
+    "name": "Salon tóc"
+  },
+  {
+    "id": "barbershop",
+    "name": "Tiệm cắt tóc nam"
+  },
+  {
+    "id": "pet_shop",
+    "name": "Cửa hàng thú cưng"
+  },
+  {
+    "id": "toy_store",
+    "name": "Đồ chơi trẻ em"
+  },
+  {
+    "id": "laundry",
+    "name": "Giặt ủi"
+  },
+  {
+    "id": "bike_shop",
+    "name": "Sửa xe / xe đạp"
+  },
+  {
+    "id": "bakery",
+    "name": "Tiệm bánh"
+  },
+  {
+    "id": "ice_cream",
+    "name": "Kem / tráng miệng"
+  },
+  {
+    "id": "flower_shop",
+    "name": "Tiệm hoa"
+  },
+  {
+    "id": "drink_shop",
+    "name": "Quán nước bình dân"
+  },
+  {
+    "id": "printing",
+    "name": "In ấn / photocopy"
+  },
+  {
+    "id": "tattoo",
+    "name": "Tiệm xăm"
+  },
+  {
+    "id": "gaming",
+    "name": "Tiệm net / game"
+  },
+  {
+    "id": "repair",
+    "name": "Sửa chữa điện tử"
+  }
+]
