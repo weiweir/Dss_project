@@ -382,12 +382,7 @@
                 </div>
 
                 <!-- Advanced Options (Collapsible) -->
-                <div class="mb-3">
-                  <button class="btn btn-outline-secondary btn-sm w-100" type="button" data-bs-toggle="collapse"
-                          data-bs-target="#advancedOptions">
-                    <i class="fas fa-cog me-1"></i> Tùy chọn nâng cao
-                  </button>
-                </div>
+
 
                 <div class="collapse" id="advancedOptions">
                   <div class="border-top pt-3">
@@ -679,7 +674,7 @@
                       <div class="row">
                         <div class="col-6 mb-3">
                           <div class="metric-card">
-                            <div class="metric-value">{{ report_data.market_overview.infrastructure_score|floatformat:1 }}</div>
+                            <div class="metric-value">{{ report_data.market_overview.infrastructure_score|floatformat:1 }}/1.0</div>
                             <div class="metric-label">Điểm hạ tầng</div>
                           </div>
                         </div>
