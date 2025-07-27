@@ -6,7 +6,19 @@ CATEGORY_FILE = os.path.join(os.path.dirname(__file__), 'data', 'categories.json
 with open(CATEGORY_FILE, 'r', encoding='utf-8') as f:
     categories = json.load(f)
 
-CATEGORY_CHOICES = [("", "Tất cả các loại hình")] + [(c["category_id"], c["category_name"]) for c in categories]
+CATEGORY_CHOICES = [(c["category_id"], c["category_name"]) for c in categories]
+
+CATEGORY_CHOICES = sorted(CATEGORY_CHOICES, key=lambda x : x[1])
+
+CRITERIAS = [
+    {"id": "", "name": "--Select--"},
+    {"id": "dt", "name":"Doanh thu"}, 
+    {"id": "ct", "name":"Khả năng cạnh tranh"}, 
+    {"id":"dg", "name":"Điểm đánh giá"}
+    ]
+CRITERIAS_CHOICES = [(item["id"], item["name"]) for item in CRITERIAS]
+
+
 
 class CombinedScoreForm(forms.Form):
     address = forms.CharField(
@@ -27,7 +39,11 @@ class CombinedScoreForm(forms.Form):
         label="Loại hình kinh doanh",
         choices=CATEGORY_CHOICES,
         required=False,
-        widget=forms.Select(attrs={'class': 'form-select'})
+        initial='4d4b7104d754a06370d81259',
+        widget=forms.Select(attrs={
+            'class': 'form-select', 
+            'id': 'id_category',
+            })
     )
 
     num_clusters = forms.IntegerField(
@@ -57,6 +73,74 @@ class CombinedScoreForm(forms.Form):
         required=False,
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
+    
+    avg_revenue = forms.IntegerField(
+        label=f"Doanh thu trung bình tháng (triệu VND)",
+        min_value=0,
+        required=False,
+        initial=100,
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'id': 'id_avg_revenue'})
+    )
+    
+    rate = forms.FloatField(
+        label="Tốc độ tăng trưởng (%)",
+        min_value=-100,
+        max_value=100,
+        initial=6,
+        required=False,
+        widget=forms.NumberInput(
+            attrs={
+                'class': 'form-control',
+                'step': '0.1',
+                'id': 'id_rate'
+                },
+            
+        )
+    )
+    
+    use_default_revenue = forms.BooleanField(
+        label="Sử dụng các giá trị trung bình mặc định của ngành",
+        required=False,
+        widget=forms.CheckboxInput(
+            attrs={
+                'id': 'id_use_default_revenue'
+            }
+        )
+    )
+    
+    best_choice = forms.ChoiceField(
+        label="Quan tâm nhất",
+        choices=CRITERIAS_CHOICES,
+        required=True,
+        initial='--Select--',
+        widget=forms.Select(attrs={
+            'class': 'form-select', 
+            'id': 'id_best'
+            }) 
+    )
+    
+    second_choice = forms.ChoiceField(
+        label="Quan tâm nhì",
+        choices=CRITERIAS_CHOICES,
+        required=True,
+        initial='--Select--',
+        widget=forms.Select(attrs={
+            'class': 'form-select', 
+            'id': 'id_second'
+            }) 
+    )
+    
+    third_choice = forms.ChoiceField(
+        label="Quan tâm ba",
+        choices=CRITERIAS_CHOICES,
+        required=True,
+        initial='--Select--',
+        widget=forms.Select(attrs={
+            'class': 'form-select', 
+            'id': 'id_third'\
+        }) 
+    )
+    
 
     # Các trọng số DSS
     w_distance = forms.FloatField(label="Trọng số Khoảng cách", min_value=0, max_value=5, initial=1.5)

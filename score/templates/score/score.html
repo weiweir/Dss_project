@@ -30,7 +30,87 @@
     .table-active-row {
         background-color: #cfe2ff !important;
     }
+    .text-sm {
+      font-size: xx-small;
+    }
+    #clusterPreConclusion {
+      font-size: large;
+      text-align: center;
+    }
+    #clusterConclusion {
+      font-size: xx-large;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    #clusterConclusion_strong {
+      font-size: x-large;
+      text-align: center;
+    }
+
   </style>
+  <script>
+
+    window.onload = function () {
+        const avg_rev = document.getElementById('id_avg_revenue');
+        const rate = document.getElementById('id_rate');
+        const checkbox = document.getElementById('id_use_default_revenue');
+        const checkChange = () => {
+            if (checkbox.checked) {
+              avg_rev.setAttribute('disabled', true);
+              rate.setAttribute('disabled', true);
+            } else {
+              avg_rev.removeAttribute('disabled');
+              rate.removeAttribute('disabled');
+            }
+          };
+
+        const best = document.getElementById('id_best');
+        const second = document.getElementById('id_second');
+        const third = document.getElementById('id_third');
+        const submit_button = document.getElementById('submit_button');
+        
+        function changeSelection() {
+          const selectedBest = best.value;
+          const selectedSecond = second.value
+
+          // Enable all options first
+          Array.from(second.options).forEach(option => option.disabled = false);
+          Array.from(third.options).forEach(option => option.disabled = false);
+
+          // Disable the selectedBest option in second and third dropdowns
+          Array.from(second.options).forEach(option => {
+            if (option.value === selectedBest && option.value !== "") {
+              option.disabled = true;
+            }
+          });
+
+          Array.from(third.options).forEach(option => {
+            if (option.value === selectedBest && option.value !== "") {
+              option.disabled = true;
+            }
+            if(option.value === selectedSecond && option.value !== "") {
+              option.disabled = true;
+            }
+          });
+
+          if(best.value === "" || second.value === "" || third.value === "" || best.value === second.value || second.value === third.value || third.value === best.value) {
+            submit_button.setAttribute('disabled', true);
+          } else {
+            submit_button.removeAttribute('disabled');
+          }
+
+        };
+        
+        changeSelection();
+        checkChange();
+        checkbox.addEventListener('change', checkChange);
+        best.addEventListener('change', changeSelection);
+        second.addEventListener('change', changeSelection);
+        third.addEventListener('change', changeSelection);
+      };
+
+  </script>
 </head>
 <body>
 <div class="container py-5">
@@ -79,23 +159,57 @@
             </div>
         </div>
 
+        <div class="row mb-4">
+          <div class="col-md-6">
+            {{ form.avg_revenue.label_tag }}
+            {{ form.avg_revenue }}
+          </div>
+          <div class="col-md-6">
+            {{ form.rate.label_tag }}
+            {{ form.rate }}
+          </div>
+          <div class="col-md-6">
+            {{ form.use_default_revenue.label_tag }}
+            {{ form.use_default_revenue }}
+          </div>
+        </div>
+        <p class="text-sm">(Nếu không có dữ liệu, hoặc trường doanh thu và tốc độ tăng trưởng bị trống, hệ thống sẽ sử dụng giá trị trung bình 100 triệu/tháng với tốc độ tăng trưởng 6%*)</p>
+
+        <h6 class="mb-3">🔢 Chọn mức độ quan tâm các tiêu chí của bạn</h6>
+        <div class="row mb-4">
+          <div class="col-md-6">
+            {{ form.best_choice.label_tag }}
+            {{ form.best_choice }}
+          </div>
+          <div class="col-md-6">
+            {{ form.second_choice.label_tag }}
+            {{ form.second_choice }}
+          </div>
+          <div class="col-md-6">
+            {{ form.third_choice.label_tag }}
+            {{ form.third_choice }}
+          </div>
+        </div>
+
+
+
         <h6 class="mb-3">Tùy chỉnh trọng số:</h6>
         <div class="row">
           {% for field in form %}
-            {% if field.name not in "address,radius,category,num_clusters, max_price, min_price" %}
+            {% if field.name not in "address,radius,category,num_clusters, max_price, min_price, avg_revenue, rate, use_default_revenue, best_choice, second_choice, third_choice" %}
               <div class="col-md-6 mb-3">
                 <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
                 <div class="d-flex align-items-center">
                   <input type="range" name="{{ field.name }}" id="{{ field.id_for_label }}"
-                         min="0" max="5" step="0.1" value="{{ field.value|default:1 }}" class="form-range me-3"
-                         oninput="document.getElementById('{{ field.name }}_val').innerText = this.value">
+                        min="0" max="5" step="0.1" value="{{ field.value|default:1 }}" class="form-range me-3"
+                        oninput="document.getElementById('{{ field.name }}_val').innerText = this.value">
                   <span class="badge bg-primary rounded-pill" id="{{ field.name }}_val">{{ field.value|default:1 }}</span>
                 </div>
               </div>
             {% endif %}
           {% endfor %}
         </div>
-        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold"><i class="bi bi-search"></i> Phân Tích Ngay</button>
+        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="submit_button"><i class="bi bi-search"></i> Phân Tích Ngay</button>
       </form>
     </div>
   </div>
@@ -141,6 +255,7 @@
                 <tr>
                   <th>#</th>
                   <th>Tên Địa Điểm</th>
+                  <th>Doanh thu</th>
                   <th>Điểm</th>
                   <th>Cụm</th>
                 </tr>
@@ -170,8 +285,11 @@
         <canvas id="clusterCountChart" height="180"></canvas>
         <hr>
         <canvas id="clusterScoreChart" height="180"></canvas>
+        <canvas id="clusterRevenueChart" height="180"></canvas>
         <div class="mt-3">
-          <strong>Kết luận:</strong>
+          <br><br>
+          <p id="clusterPreConclusion">Áp dụng MFDM dựa trên mức độ quan tâm các tiêu chí</p>
+          <strong id="clusterConclusion_strong">Kết luận:</strong>
           <span id="clusterConclusion" class="text-primary"></span>
         </div>
       </div>
@@ -192,6 +310,9 @@
         "#bcf60c", // Xanh lá nhạt
         "#fabebe"  // Hồng nhạt
       ];
+      
+      const cluster_df = {{ cluster_df|safe }};
+      
 
       // Hàm tạo màu bổ sung nếu cần nhiều hơn 10 cụm
       function generateColor(index) {
@@ -227,16 +348,17 @@
         return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
       });
 
+      const venueCounts = cluster_df.map(row => row.venue_count);
       // Biểu đồ số lượng địa điểm theo cụm
       const ctx1 = document.getElementById('clusterCountChart').getContext('2d');
       new Chart(ctx1, {
         type: 'bar',
         data: {
-          labels: clusterIds.map(id => "Cụm " + id),
+          labels: cluster_df.map(row => "Cụm " + row.cluster),
           datasets: [{
             label: 'Số lượng địa điểm',
-            data: counts,
-            backgroundColor: clusterIds.map(id => clusterColors[id % clusterColors.length])
+            data: venueCounts,
+            backgroundColor: cluster_df.map(row => clusterColors[row.cluster % clusterColors.length])
           }]
         },
         options: {
@@ -249,34 +371,74 @@
           scales: { y: { beginAtZero: true } }
         }
       });
-
+      
+      const avg_scores = cluster_df.map(row => row.average_score); 
       // Biểu đồ điểm trung bình theo cụm
       const ctx2 = document.getElementById('clusterScoreChart').getContext('2d');
       new Chart(ctx2, {
+          type: 'bar',
+          data: {
+            labels: cluster_df.map(row => "Cụm " + row.cluster),
+            datasets: [{
+              label: 'Điểm trung bình',
+              data: avg_scores,
+              backgroundColor: cluster_df.map(row => clusterColors[row.cluster % clusterColors.length])
+            }]
+          },
+          options: {
+            plugins: {
+              title: {
+                display: true,
+                text: "Biểu đồ điểm trung bình của cụm"
+              }
+            },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+        
+
+      const clusterRevs = cluster_df.map(row => row.forecasted_revenue);
+      // Biểu đồ điểm trung bình theo cụm
+      const ctx3 = document.getElementById('clusterRevenueChart').getContext('2d');
+      new Chart(ctx3, {
         type: 'bar',
         data: {
-          labels: clusterIds.map(id => "Cụm " + id),
+          labels: cluster_df.map(row => "Cụm " + row.cluster),
           datasets: [{
-            label: 'Điểm trung bình',
-            data: avgScores,
-            backgroundColor: clusterIds.map(id => clusterColors[id % clusterColors.length])
+            label: 'Doanh thu (dự kiến)',
+            data: clusterRevs,
+            backgroundColor: cluster_df.map(row => clusterColors[row.cluster % clusterColors.length])
           }]
         },
         options: {
           plugins: {
             title: {
               display: true,
-              text: "Biểu đồ điểm trung bình của cụm"
+              text: "Biểu đồ doanh thu dự kiến trong tháng tới khi mới cơ sở tại cụm (triệu VND)"
             }
           },
-          scales: { y: { beginAtZero: true, max: 100 } }
+          scales: { y: { beginAtZero: true } }
         }
       });
 
+
       // Kết luận về cụm nên chọn
+      const bestCluster = cluster_df.reduce((max, current) => {
+          return (current.MFDM_score > max.MFDM_score) ? current : max;
+        });
+      
+      const best = document.getElementById('id_best');
+      const second = document.getElementById('id_second');
+      const third = document.getElementById('id_third');
+      const bestText = best.options[best.selectedIndex].text;
+      const secondText = second.options[second.selectedIndex].text;
+      const thirdText = third.options[third.selectedIndex].text;
+      
+
       const minIndex = counts.indexOf(Math.min(...counts));
       const suggested = clusterIds[minIndex];
-      document.getElementById('clusterConclusion').innerText = "Cụm " + suggested + " có ít địa điểm nhất → nên chọn cụm này.";
+      document.getElementById('clusterPreConclusion').innerText = "Áp dụng MFDM dựa trên mức độ quan tâm các tiêu chí: " + bestText + " > " + secondText + " > " + thirdText;
+      document.getElementById('clusterConclusion').innerText = "Cụm " + bestCluster.cluster + " có chỉ số MFDM cao nhất → nên chọn cụm " + bestCluster.cluster + ".";
 
       // Khởi tạo bản đồ
       const centerLat = {{ center_lat }};
@@ -321,6 +483,7 @@
             <hr class="my-1">
             <p class="mb-1"><strong>Điểm:</strong> <span class="badge" style="background-color:${color};">${d.score}</span></p>
             <p class="mb-1"><strong>Đối thủ:</strong> ${d.competitors}</p>
+            <p class="mb-1"><strong>Doanh thu trong tháng (dự kiến):</strong> ${d.estimated_revenue} triệu VND</p>
             <p class="mb-0"><em>${d.address}</em></p>
         `);
 
@@ -330,6 +493,7 @@
         tr.innerHTML = `
           <td><b>${index + 1}</b></td>
           <td>${d.name}</td>
+          <td>${d.estimated_revenue}</td>
           <td><span class="badge" style="background-color:${color};">${d.score}</span></td>
           <td>${d.hasOwnProperty('cluster') ? `Cụm ${d.cluster}` : '-'}</td>
         `;
