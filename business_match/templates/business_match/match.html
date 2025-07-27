@@ -592,10 +592,13 @@
                           <div class="mb-3">
                             <div class="d-flex justify-content-between mb-1">
                               <small class="text-muted">Độ tin cậy</small>
-                              <small class="text-muted">{{ result.scoring_result.confidence|floatformat:0 }}%</small>
+                              <small class="text-muted confidence-text" data-confidence="{{ result.scoring_result.confidence }}">
+                                {{ result.scoring_result.confidence|floatformat:0 }}%
+                              </small>
                             </div>
                             <div class="confidence-indicator">
                               <div class="confidence-bar bg-{% if result.scoring_result.confidence >= 0.8 %}success{% elif result.scoring_result.confidence >= 0.6 %}primary{% elif result.scoring_result.confidence >= 0.4 %}warning{% else %}danger{% endif %}"
+                                   data-confidence="{{ result.scoring_result.confidence }}"
                                    style="width: {{ result.scoring_result.confidence|floatformat:0 }}%"></div>
                             </div>
                           </div>
@@ -1174,6 +1177,41 @@
     window.addEventListener('error', function(e) {
       console.error('JavaScript error:', e.error);
       hideLoading();
+    });
+
+    // Fix confidence display
+    document.addEventListener('DOMContentLoaded', function() {
+      // Fix confidence text display
+      document.querySelectorAll('.confidence-text').forEach(element => {
+        const confidence = parseFloat(element.dataset.confidence);
+        let displayValue;
+
+        if (confidence <= 1) {
+          // Decimal format (0.7) -> convert to percentage
+          displayValue = Math.round(confidence * 100) + '%';
+        } else {
+          // Already percentage format
+          displayValue = Math.round(confidence) + '%';
+        }
+
+        element.textContent = displayValue;
+      });
+
+      // Fix confidence bar width
+      document.querySelectorAll('.confidence-bar').forEach(element => {
+        const confidence = parseFloat(element.dataset.confidence);
+        let width;
+
+        if (confidence <= 1) {
+          // Decimal format (0.7) -> convert to percentage
+          width = confidence * 100;
+        } else {
+          // Already percentage format
+          width = confidence;
+        }
+
+        element.style.width = Math.round(width) + '%';
+      });
     });
 
     // Responsive handling
