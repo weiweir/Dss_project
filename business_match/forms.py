@@ -81,13 +81,6 @@ class BusinessMatchForm(forms.Form):
         help_text="Độ sâu phân tích ảnh hưởng đến thời gian và chi tiết kết quả"
     )
 
-    include_sensitivity = forms.BooleanField(
-        label="Bao gồm phân tích độ nhạy",
-        required=False,
-        initial=False,
-        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        help_text="Phân tích mức độ ảnh hưởng khi thay đổi các yếu tố"
-    )
 
     market_condition = forms.ChoiceField(
         label="Điều kiện thị trường hiện tại",
