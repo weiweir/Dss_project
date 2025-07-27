@@ -1,7 +1,7 @@
 import requests
 
 # 🔐 Foursquare API Key
-FOURSQUARE_API_KEY = "YOUR_API_KEY_HERE"  # ← thay bằng key thật của bạn
+FOURSQUARE_API_KEY = "Bearer JR4BE2E5QYVC1OB3HHNWWRTFZPN0OCIUDLOEU1VCCOSMMIZB"
 HEADERS = {
     "Accept": "application/json",
     "Authorization": FOURSQUARE_API_KEY

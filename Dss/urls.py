@@ -15,11 +15,16 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.shortcuts import redirect
 from django.urls import path
 from django.urls import include
 
+def home_redirect(request):
+    return redirect('/business_match/')
+
 urlpatterns = {
     path('admin/', admin.site.urls),
+    path('', home_redirect),
     path('score/', include('score.urls')),
     path('business_match/', include('business_match.urls')),
 }
