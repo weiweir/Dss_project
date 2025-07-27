@@ -165,10 +165,51 @@
       z-index: 100;
     }
 
+    /* Fixed Map Styles */
     #map {
       height: 400px;
+      width: 100%;
       border-radius: var(--border-radius);
       box-shadow: var(--card-shadow);
+      position: relative;
+      z-index: 1;
+    }
+
+    .map-container {
+      height: 400px;
+      width: 100%;
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    /* Custom map icon styling */
+    .custom-div-icon {
+      background: transparent !important;
+      border: none !important;
+      text-align: center;
+    }
+
+    /* Fix leaflet control positioning */
+    .leaflet-control-zoom {
+      margin-left: 10px !important;
+      margin-top: 10px !important;
+    }
+
+    .leaflet-control-attribution {
+      font-size: 10px !important;
+      background: rgba(255, 255, 255, 0.8) !important;
+    }
+
+    /* Ensure map tiles load properly */
+    .leaflet-tile {
+      max-width: none !important;
+    }
+
+    /* Fix for mobile devices */
+    .leaflet-touch .leaflet-control-layers,
+    .leaflet-touch .leaflet-bar {
+      border: 2px solid rgba(0,0,0,0.2) !important;
+      background-clip: padding-box !important;
     }
 
     .loading-overlay {
@@ -240,6 +281,14 @@
 
       .metric-card {
         margin-bottom: 1rem;
+      }
+
+      #map {
+        height: 300px;
+      }
+
+      .map-container {
+        height: 300px;
       }
     }
   </style>
@@ -371,11 +420,6 @@
                         {{ form.risk_tolerance.label_tag }}
                         {{ form.risk_tolerance }}
                       </div>
-                    </div>
-
-                    <div class="form-check mb-3">
-                      {{ form.include_sensitivity }}
-                      {{ form.include_sensitivity.label_tag }}
                     </div>
                   </div>
                 </div>
@@ -520,7 +564,6 @@
                     <i class="fas fa-shield-alt me-2"></i>Rủi ro
                   </button>
                 </li>
-
               </ul>
             </div>
 
@@ -530,11 +573,6 @@
                 <div class="card-body">
                   <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">Bảng xếp hạng ngành kinh doanh</h5>
-                      <div class="btn-group btn-group-sm" role="group">
-
-
-
-                    </div>
                   </div>
 
                   <div class="row" id="resultsContainer">
@@ -627,7 +665,9 @@
                   <div class="row">
                     <div class="col-md-6">
                       <h6 class="fw-bold mb-3">Bản đồ khu vực</h6>
-                      <div id="map"></div>
+                      <div class="map-container">
+                        <div id="map"></div>
+                      </div>
                     </div>
                     <div class="col-md-6">
                       <h6 class="fw-bold mb-3">Thông tin thị trường</h6>
@@ -691,27 +731,27 @@
                   <div class="row">
                     {% for risk_level, businesses in report_data.risk_matrix.items %}
                     {% if businesses %}
-                    <div class="col-md-6 mb-4">
-                      <div class="card border-0 shadow-sm">
-                        <div class="card-header risk-{{ risk_level }} text-center">
-                          <strong>
-                            Rủi ro {% if risk_level == 'very_low' %}rất thấp
-                            {% elif risk_level == 'low' %}thấp
-                            {% elif risk_level == 'medium' %}trung bình
-                            {% elif risk_level == 'high' %}cao
-                            {% else %}rất cao{% endif %}
-                          </strong>
-                        </div>
-                        <div class="card-body">
-                          {% for business in businesses %}
-                          <div class="d-flex justify-content-between mb-2">
-                            <span class="small">{{ business.name }}</span>
-                            <span class="badge bg-primary">{{ business.score }}%</span>
+                                          <div class="col-md-6 mb-4">
+                        <div class="card border-0 shadow-sm">
+                          <div class="card-header risk-{{ risk_level }} text-center">
+                            <strong>
+                              Rủi ro {% if risk_level == 'very_low' %}rất thấp
+                              {% elif risk_level == 'low' %}thấp
+                              {% elif risk_level == 'medium' %}trung bình
+                              {% elif risk_level == 'high' %}cao
+                              {% else %}rất cao{% endif %}
+                            </strong>
                           </div>
-                          {% endfor %}
+                          <div class="card-body">
+                            {% for business in businesses %}
+                            <div class="d-flex justify-content-between mb-2">
+                              <span class="small">{{ business.name }}</span>
+                              <span class="badge bg-primary">{{ business.score }}%</span>
+                            </div>
+                            {% endfor %}
+                          </div>
                         </div>
                       </div>
-                    </div>
                     {% endif %}
                     {% endfor %}
                   </div>
@@ -818,45 +858,108 @@
     let sensitivityChart = null;
     const cacheKey = '{{ request.session.last_analysis_cache_key }}';
 
-    // Initialize map
-    {% if lat and lon %}
-    document.addEventListener('DOMContentLoaded', function() {
-      initializeMap({{ lat }}, {{ lon }}, {{ radius|default:2000 }});
-    });
-    {% endif %}
+    // Fixed Map Initialization Function
+    function initializeMap(lat, lon, radius) {
+      console.log('Initializing map with:', { lat, lon, radius });
+
+      const mapContainer = document.getElementById('map');
+      console.log('Map container:', mapContainer);
+      console.log('Container dimensions:', {
+        width: mapContainer.offsetWidth,
+        height: mapContainer.offsetHeight,
+        visible: mapContainer.offsetParent !== null
+      });
+
+      // Destroy existing map if it exists
+      if (map) {
+        console.log('Destroying existing map');
+        map.remove();
+        map = null;
+      }
+
+      // Check if container is visible
+      if (mapContainer.offsetWidth === 0 || mapContainer.offsetHeight === 0) {
+        console.warn('Map container has zero dimensions, retrying...');
+        setTimeout(() => {
+          initializeMap(lat, lon, radius);
+        }, 500);
+        return;
+      }
+
+      // Wait for DOM to be ready
+      setTimeout(() => {
+        // Initialize map with proper center and zoom
+        map = L.map('map', {
+          center: [lat, lon],
+          zoom: 14,
+          zoomControl: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          touchZoom: true,
+          boxZoom: true,
+          keyboard: true
+        });
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap contributors',
+          crossOrigin: ''
+        }).addTo(map);
+
+        // Add center marker with custom icon
+        const centerIcon = L.divIcon({
+          html: '<i class="fas fa-map-marker-alt text-primary" style="font-size: 24px;"></i>',
+          iconSize: [24, 24],
+          className: 'custom-div-icon'
+        });
+
+        L.marker([lat, lon], { icon: centerIcon })
+          .addTo(map)
+          .bindPopup('<strong>Trung tâm phân tích</strong><br>Bán kính: ' + radius + 'm')
+          .openPopup();
+
+        // Add radius circle
+        L.circle([lat, lon], {
+          radius: radius,
+          color: '#2563eb',
+          weight: 2,
+          opacity: 0.8,
+          fillColor: '#2563eb',
+          fillOpacity: 0.1
+        }).addTo(map);
+
+        // Force map to resize properly
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
+
+      }, 100);
+    }
+
+    // Map refresh function
+    function refreshMap() {
+      if (map) {
+        // Force map to recalculate size
+        map.invalidateSize(true);
+
+        // Trigger resize event
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'));
+        }, 50);
+
+        // Double-check after a short delay
+        setTimeout(() => {
+          map.invalidateSize(true);
+        }, 200);
+      }
+    }
 
     // Form submission with loading
     document.getElementById('analysisForm').addEventListener('submit', function(e) {
       showLoading();
       document.getElementById('analysisProgress').classList.add('active');
     });
-
-    function initializeMap(lat, lon, radius) {
-      if (map) {
-        map.remove();
-      }
-
-      map = L.map('map').setView([lat, lon], 15);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
-
-      // Add center marker
-      L.marker([lat, lon])
-        .addTo(map)
-        .bindPopup('Trung tâm phân tích')
-        .openPopup();
-
-      // Add radius circle
-      L.circle([lat, lon], {
-        radius: radius,
-        color: '#2563eb',
-        fillColor: '#2563eb',
-        fillOpacity: 0.1
-      }).addTo(map);
-    }
 
     function showLoading() {
       document.getElementById('loadingOverlay').classList.add('active');
@@ -884,37 +987,37 @@
     }
 
     function showDetailedAnalysis(businessId) {
-    const cacheKey = '{{ request.session.last_analysis_cache_key }}';
+      const cacheKey = '{{ request.session.last_analysis_cache_key }}';
 
-    if (!cacheKey) {
-        alert('Vui lòng chạy phân tích trước');
-        return;
+      if (!cacheKey) {
+          alert('Vui lòng chạy phân tích trước');
+          return;
+      }
+
+      fetch(`/business_match/api/detailed-analysis/${businessId}/`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+          },
+          body: JSON.stringify({
+              cache_key: cacheKey
+          })
+      })
+      .then(response => response.json())
+      .then(data => {
+          if (data.success) {
+              document.getElementById('detailModalBody').innerHTML = data.html;
+              new bootstrap.Modal(document.getElementById('detailModal')).show();
+          } else {
+              alert('Không thể tải thông tin chi tiết: ' + (data.error || 'Unknown error'));
+          }
+      })
+      .catch(error => {
+          console.error('Error:', error);
+          alert('Không thể tải thông tin chi tiết');
+      });
     }
-
-    fetch(`/business_match/api/detailed-analysis/${businessId}/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: JSON.stringify({
-            cache_key: cacheKey
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('detailModalBody').innerHTML = data.html;
-            new bootstrap.Modal(document.getElementById('detailModal')).show();
-        } else {
-            alert('Không thể tải thông tin chi tiết: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Không thể tải thông tin chi tiết');
-    });
-}
 
     function showComparison() {
       // Show comparison modal with top businesses
@@ -944,86 +1047,6 @@
       modal.show();
     }
 
-    function runSensitivityAnalysis() {
-    const cacheKey = '{{ request.session.last_analysis_cache_key }}';
-
-    if (!cacheKey) {
-        alert('Vui lòng chạy phân tích trước');
-        return;
-    }
-
-    showLoading();
-
-    fetch('/business_match/api/sensitivity-analysis/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-        },
-        body: JSON.stringify({
-            cache_key: cacheKey,
-            business_id: 'cafe',
-            parameters: {
-                weight_adjustment: 20
-            }
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        hideLoading();
-
-        if (data.success) {
-            showSensitivityResults(data.sensitivity_results);
-        } else {
-            alert('Lỗi phân tích độ nhạy: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(error => {
-        hideLoading();
-        console.error('Error:', error);
-        alert('Không thể chạy phân tích độ nhạy');
-    });
-}
-
-    function showSensitivityResults(results) {
-      document.getElementById('sensitivityPlaceholder').classList.add('d-none');
-      document.getElementById('sensitivityResults').classList.remove('d-none');
-
-      // Create sensitivity chart
-      const ctx = document.getElementById('sensitivityChart').getContext('2d');
-
-      if (sensitivityChart) {
-        sensitivityChart.destroy();
-      }
-
-      sensitivityChart = new Chart(ctx, {
-        type: 'radar',
-        data: {
-          labels: Object.keys(results),
-          datasets: [{
-            label: 'Độ nhạy (%)',
-            data: Object.values(results),
-            backgroundColor: 'rgba(37, 99, 235, 0.2)',
-            borderColor: 'rgb(37, 99, 235)',
-            pointBackgroundColor: 'rgb(37, 99, 235)',
-            pointBorderColor: '#fff',
-            pointHoverBackgroundColor: '#fff',
-            pointHoverBorderColor: 'rgb(37, 99, 235)'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            r: {
-              beginAtZero: true,
-              max: 50
-            }
-          }
-        }
-      });
-    }
-
     function exportReport(format) {
       if (!cacheKey) {
         alert('Không có dữ liệu để xuất');
@@ -1033,9 +1056,39 @@
       window.open(`/export-report/${format}/?cache_key=${cacheKey}`, '_blank');
     }
 
-    // Auto-hide loading on page load
+    // Event listeners for map initialization and refresh
     document.addEventListener('DOMContentLoaded', function() {
       hideLoading();
+
+      // Listen for tab change to market tab
+      const marketTab = document.getElementById('market-tab');
+      if (marketTab) {
+        marketTab.addEventListener('shown.bs.tab', function() {
+          {% if lat and lon %}
+          setTimeout(() => {
+            initializeMap({{ lat }}, {{ lon }}, {{ radius|default:2000 }});
+          }, 150);
+          {% endif %}
+        });
+      }
+
+      // Call refresh when switching to market tab
+      document.querySelectorAll('.feature-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          if (this.getAttribute('data-bs-target') === '#market') {
+            setTimeout(refreshMap, 150);
+          }
+        });
+      });
+
+      // Also fix on window resize
+      window.addEventListener('resize', function() {
+        if (map) {
+          setTimeout(() => {
+            map.invalidateSize();
+          }, 100);
+        }
+      });
 
       // Initialize tooltips
       var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -1043,6 +1096,23 @@
         return new bootstrap.Tooltip(tooltipTriggerEl);
       });
     });
+
+    // Initialize map when page loads if data is available
+    {% if lat and lon %}
+    document.addEventListener('DOMContentLoaded', function() {
+      // Only initialize map when market tab is active or when specifically requested
+      const marketTab = document.getElementById('market');
+      if (marketTab) {
+        // Initialize when market tab is shown
+        const marketTabButton = document.getElementById('market-tab');
+        if (marketTabButton) {
+          marketTabButton.addEventListener('shown.bs.tab', function() {
+            initializeMap({{ lat }}, {{ lon }}, {{ radius|default:2000 }});
+          });
+        }
+      }
+    });
+    {% endif %}
 
     // Handle tab switching
     document.querySelectorAll('.feature-tab').forEach(tab => {
@@ -1077,8 +1147,6 @@
     const addressField = document.querySelector('[name="address"]');
     if (addressField) {
       addressField.addEventListener('input', function() {
-        // Could integrate with Google Places API or similar
-        // For now, just basic validation
         const value = this.value.trim();
         if (value.length > 3) {
           this.style.borderColor = '#28a745';
@@ -1088,30 +1156,19 @@
       });
     }
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', function(e) {
-      // Ctrl/Cmd + Enter to submit form
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        const form = document.getElementById('analysisForm');
-        if (form) {
-          form.submit();
-        }
+    // Debug function - có thể gọi từ console để test
+    window.debugMap = function() {
+      console.log('Map object:', map);
+      console.log('Map container:', document.getElementById('map'));
+      console.log('Map container dimensions:', {
+        width: document.getElementById('map').offsetWidth,
+        height: document.getElementById('map').offsetHeight
+      });
+      if (map) {
+        console.log('Map size:', map.getSize());
+        refreshMap();
       }
-
-      // Escape to close modals
-      if (e.key === 'Escape') {
-        const modals = document.querySelectorAll('.modal.show');
-        modals.forEach(modal => {
-          bootstrap.Modal.getInstance(modal)?.hide();
-        });
-      }
-    });
-
-    // Progress indicator for long operations
-    function updateProgress(percent) {
-      const progressBar = document.getElementById('analysisProgress');
-      progressBar.style.transform = `scaleX(${percent / 100})`;
-    }
+    };
 
     // Error handling
     window.addEventListener('error', function(e) {
@@ -1132,193 +1189,7 @@
 
     window.addEventListener('resize', handleResize);
 
-    // Performance monitoring
-    window.addEventListener('load', function() {
-      if ('performance' in window) {
-        const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
-        console.log('Page load time:', loadTime + 'ms');
-
-        // Track slow loading
-        if (loadTime > 3000) {
-          console.warn('Slow page load detected');
-        }
-      }
-    });
-
-    // Service Worker for offline capabilities (if available)
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js')
-          .then(function(registration) {
-            console.log('SW registered');
-          })
-          .catch(function(registrationError) {
-            console.log('SW registration failed');
-          });
-      });
-    }
-
-    // Analytics tracking (replace with actual analytics)
-    function trackEvent(category, action, label) {
-      if (typeof gtag !== 'undefined') {
-        gtag('event', action, {
-          event_category: category,
-          event_label: label
-        });
-      }
-    }
-
-    // Track form submissions
-    document.getElementById('analysisForm').addEventListener('submit', function() {
-      trackEvent('Analysis', 'Form Submit', 'Business Analysis');
-    });
-
-    // Track export actions
-    function trackExport(format) {
-      trackEvent('Export', 'Report Export', format);
-    }
-
-    // Dark mode toggle (future feature)
-    function toggleDarkMode() {
-      document.body.classList.toggle('dark-mode');
-      localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
-    }
-
-    // Initialize dark mode from localStorage
-    document.addEventListener('DOMContentLoaded', function() {
-      if (localStorage.getItem('darkMode') === 'true') {
-        document.body.classList.add('dark-mode');
-      }
-    });
-
-    // Print functionality
-    function printReport() {
-      window.print();
-    }
-
-    // Share functionality
-    function shareReport() {
-      if (navigator.share) {
-        navigator.share({
-          title: 'Báo cáo phân tích kinh doanh',
-          text: 'Xem báo cáo phân tích ngành kinh doanh chi tiết',
-          url: window.location.href
-        });
-      } else {
-        // Fallback: copy URL to clipboard
-        navigator.clipboard.writeText(window.location.href).then(function() {
-          alert('URL đã được sao chép vào clipboard');
-        });
-      }
-    }
-
-    // Auto-save form data
-    function saveFormData() {
-      const formData = new FormData(document.getElementById('analysisForm'));
-      const data = {};
-      for (let [key, value] of formData.entries()) {
-        data[key] = value;
-      }
-      localStorage.setItem('dss_form_data', JSON.stringify(data));
-    }
-
-    function loadFormData() {
-      const saved = localStorage.getItem('dss_form_data');
-      if (saved) {
-        const data = JSON.parse(saved);
-        Object.keys(data).forEach(key => {
-          const field = document.querySelector(`[name="${key}"]`);
-          if (field) {
-            field.value = data[key];
-          }
-        });
-      }
-    }
-
-    // Auto-save on form change
-    document.getElementById('analysisForm').addEventListener('change', saveFormData);
-    document.getElementById('analysisForm').addEventListener('input', saveFormData);
-
-    // Load saved data on page load
-    document.addEventListener('DOMContentLoaded', loadFormData);
-
-    // Notification system
-    function showNotification(message, type = 'info') {
-      const notification = document.createElement('div');
-      notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-      notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-      notification.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      `;
-
-      document.body.appendChild(notification);
-
-      // Auto-remove after 5 seconds
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.remove();
-        }
-      }, 5000);
-    }
-
-    // Connection status monitoring
-    window.addEventListener('online', function() {
-      showNotification('Kết nối internet đã được khôi phục', 'success');
-    });
-
-    window.addEventListener('offline', function() {
-      showNotification('Mất kết nối internet', 'warning');
-    });
-
   </script>
-
-  <!-- Custom CSS for dark mode (future feature) -->
-  <style>
-    .dark-mode {
-      background: #1a1a1a;
-      color: #ffffff;
-    }
-
-    .dark-mode .main-container {
-      background: #2d2d2d;
-    }
-
-    .dark-mode .analysis-card,
-    .dark-mode .card {
-      background: #3d3d3d;
-      border-color: #4d4d4d;
-    }
-
-    .dark-mode .card-header {
-      background: #4d4d4d;
-      border-color: #5d5d5d;
-    }
-
-    .dark-mode .text-muted {
-      color: #cccccc !important;
-    }
-
-    .dark-mode .border {
-      border-color: #4d4d4d !important;
-    }
-
-    @media print {
-      .no-print {
-        display: none !important;
-      }
-
-      .analysis-card {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      body {
-        background: white !important;
-        color: black !important;
-      }
-    }
-  </style>
 
 </body>
 </html>
