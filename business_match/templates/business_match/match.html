@@ -520,12 +520,7 @@
                     <i class="fas fa-shield-alt me-2"></i>Rủi ro
                   </button>
                 </li>
-                <li class="nav-item" role="presentation">
-                  <button class="feature-tab" id="sensitivity-tab" data-bs-toggle="tab"
-                          data-bs-target="#sensitivity" type="button" role="tab">
-                    <i class="fas fa-sliders-h me-2"></i>Độ nhạy
-                  </button>
-                </li>
+
               </ul>
             </div>
 
@@ -727,28 +722,6 @@
                 </div>
               </div>
 
-              <!-- Sensitivity Analysis Tab -->
-              <div class="tab-pane fade" id="sensitivity" role="tabpanel">
-                <div class="card-body">
-                  <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h6 class="fw-bold mb-0">Phân tích độ nhạy</h6>
-                    <button class="btn btn-primary btn-sm" onclick="runSensitivityAnalysis()">
-                      <i class="fas fa-play me-1"></i>Chạy phân tích
-                    </button>
-                  </div>
-
-                  <div id="sensitivityResults" class="d-none">
-                    <div class="sensitivity-chart">
-                      <canvas id="sensitivityChart"></canvas>
-                    </div>
-                  </div>
-
-                  <div id="sensitivityPlaceholder" class="text-center text-muted py-5">
-                    <i class="fas fa-chart-line fa-3x mb-3"></i>
-                    <p>Nhấn "Chạy phân tích" để xem độ nhạy của các yếu tố</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -914,27 +887,37 @@
     }
 
     function showDetailedAnalysis(businessId) {
-      // Show detailed analysis in modal
-      fetch(`/api/detailed-analysis/${businessId}/`, {
+    const cacheKey = '{{ request.session.last_analysis_cache_key }}';
+
+    if (!cacheKey) {
+        alert('Vui lòng chạy phân tích trước');
+        return;
+    }
+
+    fetch(`/business_match/api/detailed-analysis/${businessId}/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         },
         body: JSON.stringify({
-          cache_key: cacheKey
+            cache_key: cacheKey
         })
-      })
-      .then(response => response.json())
-      .then(data => {
-        document.getElementById('detailModalBody').innerHTML = data.html;
-        new bootstrap.Modal(document.getElementById('detailModal')).show();
-      })
-      .catch(error => {
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('detailModalBody').innerHTML = data.html;
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        } else {
+            alert('Không thể tải thông tin chi tiết: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
         console.error('Error:', error);
         alert('Không thể tải thông tin chi tiết');
-      });
-    }
+    });
+}
 
     function showComparison() {
       // Show comparison modal with top businesses
@@ -965,43 +948,45 @@
     }
 
     function runSensitivityAnalysis() {
-      if (!cacheKey) {
+    const cacheKey = '{{ request.session.last_analysis_cache_key }}';
+
+    if (!cacheKey) {
         alert('Vui lòng chạy phân tích trước');
         return;
-      }
+    }
 
-      showLoading();
+    showLoading();
 
-      fetch('/api/sensitivity-analysis/', {
+    fetch('/business_match/api/sensitivity-analysis/', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
         },
         body: JSON.stringify({
-          cache_key: cacheKey,
-          business_id: 'cafe', // Default for demo
-          parameters: {
-            weight_adjustment: 20
-          }
+            cache_key: cacheKey,
+            business_id: 'cafe',
+            parameters: {
+                weight_adjustment: 20
+            }
         })
-      })
-      .then(response => response.json())
-      .then(data => {
+    })
+    .then(response => response.json())
+    .then(data => {
         hideLoading();
 
         if (data.success) {
-          showSensitivityResults(data.sensitivity_results);
+            showSensitivityResults(data.sensitivity_results);
         } else {
-          alert('Lỗi phân tích độ nhạy');
+            alert('Lỗi phân tích độ nhạy: ' + (data.error || 'Unknown error'));
         }
-      })
-      .catch(error => {
+    })
+    .catch(error => {
         hideLoading();
         console.error('Error:', error);
         alert('Không thể chạy phân tích độ nhạy');
-      });
-    }
+    });
+}
 
     function showSensitivityResults(results) {
       document.getElementById('sensitivityPlaceholder').classList.add('d-none');

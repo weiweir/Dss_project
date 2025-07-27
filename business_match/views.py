@@ -1,4 +1,3 @@
-
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -74,7 +73,10 @@ def safe_score_business(business_id: str, inputs: Dict, context: Dict) -> Dict[s
         base_score = (hash(business_id) % 60) + 30  # Score between 30-90
         return {
             "score": float(base_score),
-            "reason": f"Phân tích cơ bản cho {business_id}"
+            "reason": f"Phân tích cơ bản cho {business_id}",
+            "confidence": 0.7,
+            "reasons": [f"Phân tích cơ bản cho {business_id}"],
+            "recommendations": [f"Khuyến nghị cho {business_id}"]
         }
 
 
@@ -180,6 +182,7 @@ def match_view(request):
             }
 
             # Analyze each business category
+            detailed_results = []
             for cat in CATEGORY_LIST:
                 business_id = cat["id"]
                 display_name = cat["name"]
@@ -196,12 +199,18 @@ def match_view(request):
                     )
 
                     # Check rules/warnings
+                    rule_results = []
                     warnings = safe_check_rules(business_id, context)
+                    for warning in warnings:
+                        rule_results.append({
+                            "message": warning,
+                            "severity": "warning"
+                        })
 
                     # Calculate risk level
                     risk_level = get_risk_level(scoring_result["score"], warnings)
 
-                    # Format result
+                    # Format result for template
                     result = {
                         "id": business_id,
                         "name": display_name,
@@ -209,16 +218,35 @@ def match_view(request):
                         "reason": scoring_result.get("reason", "Phân tích cơ bản"),
                         "warnings": warnings,
                         "risk_level": risk_level,
-                        "confidence": 70.0,  # Default confidence
-                        "recommendations": [f"Khuyến nghị cho {display_name}"]
+                        "confidence": scoring_result.get("confidence", 70.0),
+                        "recommendations": scoring_result.get("recommendations", [f"Khuyến nghị cho {display_name}"])
+                    }
+
+                    # Create detailed result structure that matches template
+                    detailed_result = {
+                        "id": business_id,
+                        "name": display_name,
+                        "scoring_result": {
+                            "score": scoring_result["score"],
+                            "confidence": scoring_result.get("confidence", 0.7),
+                            "reasons": scoring_result.get("reasons",
+                                                          [scoring_result.get("reason", "Phân tích cơ bản")]),
+                            "recommendations": scoring_result.get("recommendations",
+                                                                  [f"Khuyến nghị cho {display_name}"])
+                        },
+                        "rule_results": rule_results,
+                        "risk_assessment": {
+                            "level": risk_level
+                        }
                     }
 
                     results.append(result)
+                    detailed_results.append(detailed_result)
 
                 except Exception as e:
                     logger.error(f"Error analyzing {business_id}: {e}")
                     # Add fallback result
-                    results.append({
+                    fallback_result = {
                         "id": business_id,
                         "name": display_name,
                         "score": 50.0,
@@ -227,16 +255,43 @@ def match_view(request):
                         "risk_level": "medium",
                         "confidence": 50.0,
                         "recommendations": ["Cần nghiên cứu thêm"]
-                    })
+                    }
+
+                    detailed_fallback = {
+                        "id": business_id,
+                        "name": display_name,
+                        "scoring_result": {
+                            "score": 50.0,
+                            "confidence": 0.5,
+                            "reasons": ["Phân tích cơ bản"],
+                            "recommendations": ["Cần nghiên cứu thêm"]
+                        },
+                        "rule_results": [{"message": "Dữ liệu hạn chế", "severity": "info"}],
+                        "risk_assessment": {"level": "medium"}
+                    }
+
+                    results.append(fallback_result)
+                    detailed_results.append(detailed_fallback)
 
             # Sort results by score
             results.sort(key=lambda x: x["score"], reverse=True)
+            detailed_results.sort(key=lambda x: x["scoring_result"]["score"], reverse=True)
 
             # Generate report data for enhanced template
-            report_data = generate_report_data(results, osm_data, category_counts)
+            report_data = generate_report_data(results, osm_data, category_counts, detailed_results)
 
             # Generate data quality info
             data_quality = generate_data_quality_info(places, osm_data)
+
+            # Store analysis in session for sensitivity analysis
+            request.session['last_analysis'] = {
+                'results': results,
+                'context': context,
+                'detailed_results': detailed_results,
+                'timestamp': str(timezone.now())
+            }
+            request.session[
+                'last_analysis_cache_key'] = f"analysis_{request.session.session_key}_{int(timezone.now().timestamp())}"
 
             messages.success(request, f"Đã phân tích {len(results)} ngành kinh doanh")
 
@@ -260,7 +315,8 @@ def match_view(request):
     return render(request, "business_match/match.html", context)
 
 
-def generate_report_data(results: List[Dict], osm_data: Dict, category_counts: Dict) -> Dict[str, Any]:
+def generate_report_data(results: List[Dict], osm_data: Dict, category_counts: Dict, detailed_results: List[Dict]) -> \
+Dict[str, Any]:
     """Generate report data structure for enhanced template"""
 
     if not results:
@@ -272,10 +328,19 @@ def generate_report_data(results: List[Dict], osm_data: Dict, category_counts: D
     medium_potential = len([r for r in results if 50 <= r["score"] < 70])
     low_potential = len([r for r in results if r["score"] < 50])
 
+    # Top opportunities with additional data
+    top_opportunities = []
+    for result in results[:3]:
+        top_opportunities.append({
+            "name": result["name"],
+            "score": result["score"],
+            "key_reason": result["reason"]
+        })
+
     return {
         "executive_summary": {
             "market_attractiveness": "high" if avg_score >= 60 else "medium" if avg_score >= 40 else "low",
-            "top_opportunities": results[:3],
+            "top_opportunities": top_opportunities,
             "opportunity_distribution": {
                 "high_potential": high_potential,
                 "medium_potential": medium_potential,
@@ -295,7 +360,7 @@ def generate_report_data(results: List[Dict], osm_data: Dict, category_counts: D
         },
         "top_recommendations": results[:5],
         "risk_matrix": generate_risk_matrix(results),
-        "detailed_results": results
+        "detailed_results": detailed_results  # Add this for template compatibility
     }
 
 
@@ -397,23 +462,58 @@ def generate_risk_matrix(results: List[Dict]) -> Dict[str, List[Dict]]:
     return risk_matrix
 
 
-# Simplified API endpoints
+# API endpoints for sensitivity analysis
 @csrf_exempt
 @require_http_methods(["POST"])
 def sensitivity_analysis_api(request):
-    """Simplified sensitivity analysis API"""
+    """Enhanced sensitivity analysis API"""
     try:
         data = json.loads(request.body)
         business_id = data.get("business_id", "cafe")
+        cache_key = data.get("cache_key")
 
-        # Generate demo sensitivity data
-        factors = ["customer", "competition", "market_potential", "transport", "safety"]
-        sensitivity_results = {factor: (hash(factor + business_id) % 30) + 10 for factor in factors}
+        # Get cached analysis
+        cached_analysis = request.session.get('last_analysis')
+        if not cached_analysis:
+            return JsonResponse({"error": "No analysis data found"}, status=400)
 
-        return JsonResponse({
-            "success": True,
-            "sensitivity_results": sensitivity_results
-        })
+        # Get parameters
+        parameters = data.get("parameters", {})
+        weight_adjustment = parameters.get("weight_adjustment", 20)
+
+        # Run sensitivity analysis
+        try:
+            from .logic.scenario_planner import ScenarioPlanner
+            planner = ScenarioPlanner()
+
+            # Get the context for the business
+            context = cached_analysis.get('context', {})
+
+            # Run sensitivity analysis
+            sensitivity_results = planner.run_sensitivity_analysis(business_id, context, parameters)
+
+            return JsonResponse({
+                "success": True,
+                "sensitivity_results": sensitivity_results.get("factor_sensitivities", {}),
+                "summary": sensitivity_results.get("summary", {}),
+                "most_sensitive_factors": sensitivity_results.get("most_sensitive_factors", []),
+                "baseline_score": sensitivity_results.get("baseline_score", 0)
+            })
+
+        except ImportError:
+            # Fallback sensitivity analysis
+            factors = ["customer", "competition", "market_potential", "transport", "safety"]
+            sensitivity_results = {}
+
+            for factor in factors:
+                # Simulate sensitivity based on business type
+                base_sensitivity = (hash(factor + business_id) % 30) + 10
+                sensitivity_results[factor] = base_sensitivity
+
+            return JsonResponse({
+                "success": True,
+                "sensitivity_results": sensitivity_results
+            })
 
     except Exception as e:
         logger.error(f"Sensitivity analysis error: {str(e)}")
@@ -422,17 +522,31 @@ def sensitivity_analysis_api(request):
 
 @require_http_methods(["GET"])
 def export_report(request, format_type="pdf"):
-    """Simplified export function"""
+    """Enhanced export function"""
     try:
-        # Generate simple report content
-        content = "Business Analysis Report\n\nGenerated by DSS System\n\nThis is a simplified export."
+        cache_key = request.GET.get('cache_key')
+        cached_analysis = request.session.get('last_analysis')
 
+        if not cached_analysis:
+            return JsonResponse({"error": "No analysis data found"}, status=400)
+
+        # Get analysis data
+        results = cached_analysis.get('results', [])
+        detailed_results = cached_analysis.get('detailed_results', [])
+
+        # Generate content based on format
         if format_type == "pdf":
+            # Simple PDF generation (in production, use proper PDF library)
+            content = generate_pdf_content(results, detailed_results)
             response = HttpResponse(content.encode('utf-8'), content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="business_report.pdf"'
+
         elif format_type == "excel":
+            # Generate Excel content
+            content = generate_excel_content(results, detailed_results)
             response = HttpResponse(content.encode('utf-8'), content_type='text/csv')
             response['Content-Disposition'] = 'attachment; filename="business_report.csv"'
+
         else:
             return JsonResponse({"error": "Unsupported format"}, status=400)
 
@@ -441,3 +555,107 @@ def export_report(request, format_type="pdf"):
     except Exception as e:
         logger.error(f"Export error: {str(e)}")
         return JsonResponse({"error": "Export failed"}, status=500)
+
+
+def generate_pdf_content(results: List[Dict], detailed_results: List[Dict]) -> str:
+    """Generate PDF content"""
+    content = [
+        "BUSINESS ANALYSIS REPORT",
+        "=" * 50,
+        "",
+        "EXECUTIVE SUMMARY",
+        "-" * 20,
+        ""
+    ]
+
+    for i, result in enumerate(results[:5], 1):
+        content.extend([
+            f"{i}. {result['name']}",
+            f"   Score: {result['score']}%",
+            f"   Risk: {result['risk_level']}",
+            f"   Reason: {result['reason']}",
+            ""
+        ])
+
+    return "\n".join(content)
+
+
+def generate_excel_content(results: List[Dict], detailed_results: List[Dict]) -> str:
+    """Generate Excel/CSV content"""
+    lines = ["Business,Score,Risk Level,Confidence,Key Reason"]
+
+    for result in results:
+        line = f'"{result["name"]}",{result["score"]},"{result["risk_level"]}",{result["confidence"]},"{result["reason"]}"'
+        lines.append(line)
+
+    return "\n".join(lines)
+
+
+# Additional API endpoint for detailed analysis
+@csrf_exempt
+@require_http_methods(["POST"])
+def detailed_analysis_api(request, business_id):
+    """Get detailed analysis for a specific business"""
+    try:
+        data = json.loads(request.body)
+        cache_key = data.get("cache_key")
+
+        cached_analysis = request.session.get('last_analysis')
+        if not cached_analysis:
+            return JsonResponse({"error": "No analysis data found"}, status=400)
+
+        # Find the detailed result for this business
+        detailed_results = cached_analysis.get('detailed_results', [])
+        business_detail = None
+
+        for detail in detailed_results:
+            if detail.get('id') == business_id:
+                business_detail = detail
+                break
+
+        if not business_detail:
+            return JsonResponse({"error": "Business not found"}, status=404)
+
+        # Generate HTML for modal
+        html = f"""
+        <h5>{business_detail['name']}</h5>
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Điểm số chi tiết</h6>
+                <p><strong>Tổng điểm:</strong> {business_detail['scoring_result']['score']}%</p>
+                <p><strong>Độ tin cậy:</strong> {business_detail['scoring_result']['confidence']:.0%}</p>
+            </div>
+            <div class="col-md-6">
+                <h6>Đánh giá rủi ro</h6>
+                <p><strong>Mức rủi ro:</strong> {business_detail['risk_assessment']['level']}</p>
+            </div>
+        </div>
+
+        <h6>Lý do tích cực</h6>
+        <ul>
+        """
+
+        for reason in business_detail['scoring_result']['reasons']:
+            html += f"<li>{reason}</li>"
+
+        html += "</ul>"
+
+        if business_detail['rule_results']:
+            html += "<h6>Cảnh báo</h6><ul>"
+            for rule in business_detail['rule_results']:
+                html += f'<li class="text-{rule["severity"]}">{rule["message"]}</li>'
+            html += "</ul>"
+
+        html += "<h6>Khuyến nghị</h6><ul>"
+        for rec in business_detail['scoring_result']['recommendations']:
+            html += f"<li>{rec}</li>"
+        html += "</ul>"
+
+        return JsonResponse({
+            "success": True,
+            "html": html
+        })
+
+    except Exception as e:
+        logger.error(f"Detailed analysis error: {str(e)}")
+        return JsonResponse({"error": "Analysis failed"}, status=500)

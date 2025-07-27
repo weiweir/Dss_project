@@ -30,87 +30,7 @@
     .table-active-row {
         background-color: #cfe2ff !important;
     }
-    .text-sm {
-      font-size: xx-small;
-    }
-    #clusterPreConclusion {
-      font-size: large;
-      text-align: center;
-    }
-    #clusterConclusion {
-      font-size: xx-large;
-      text-align: center;
-      font-weight: bold;
-    }
-
-    #clusterConclusion_strong {
-      font-size: x-large;
-      text-align: center;
-    }
-
   </style>
-  <script>
-
-    window.onload = function () {
-        const avg_rev = document.getElementById('id_avg_revenue');
-        const rate = document.getElementById('id_rate');
-        const checkbox = document.getElementById('id_use_default_revenue');
-        const checkChange = () => {
-            if (checkbox.checked) {
-              avg_rev.setAttribute('disabled', true);
-              rate.setAttribute('disabled', true);
-            } else {
-              avg_rev.removeAttribute('disabled');
-              rate.removeAttribute('disabled');
-            }
-          };
-
-        const best = document.getElementById('id_best');
-        const second = document.getElementById('id_second');
-        const third = document.getElementById('id_third');
-        const submit_button = document.getElementById('submit_button');
-        
-        function changeSelection() {
-          const selectedBest = best.value;
-          const selectedSecond = second.value
-
-          // Enable all options first
-          Array.from(second.options).forEach(option => option.disabled = false);
-          Array.from(third.options).forEach(option => option.disabled = false);
-
-          // Disable the selectedBest option in second and third dropdowns
-          Array.from(second.options).forEach(option => {
-            if (option.value === selectedBest && option.value !== "") {
-              option.disabled = true;
-            }
-          });
-
-          Array.from(third.options).forEach(option => {
-            if (option.value === selectedBest && option.value !== "") {
-              option.disabled = true;
-            }
-            if(option.value === selectedSecond && option.value !== "") {
-              option.disabled = true;
-            }
-          });
-
-          if(best.value === "" || second.value === "" || third.value === "" || best.value === second.value || second.value === third.value || third.value === best.value) {
-            submit_button.setAttribute('disabled', true);
-          } else {
-            submit_button.removeAttribute('disabled');
-          }
-
-        };
-        
-        changeSelection();
-        checkChange();
-        checkbox.addEventListener('change', checkChange);
-        best.addEventListener('change', changeSelection);
-        second.addEventListener('change', changeSelection);
-        third.addEventListener('change', changeSelection);
-      };
-
-  </script>
 </head>
 <body>
 <div class="container py-5">
@@ -159,57 +79,23 @@
             </div>
         </div>
 
-        <div class="row mb-4">
-          <div class="col-md-6">
-            {{ form.avg_revenue.label_tag }}
-            {{ form.avg_revenue }}
-          </div>
-          <div class="col-md-6">
-            {{ form.rate.label_tag }}
-            {{ form.rate }}
-          </div>
-          <div class="col-md-6">
-            {{ form.use_default_revenue.label_tag }}
-            {{ form.use_default_revenue }}
-          </div>
-        </div>
-        <p class="text-sm">(Nếu không có dữ liệu, hoặc trường doanh thu và tốc độ tăng trưởng bị trống, hệ thống sẽ sử dụng giá trị trung bình 100 triệu/tháng với tốc độ tăng trưởng 6%*)</p>
-
-        <h6 class="mb-3">🔢 Chọn mức độ quan tâm các tiêu chí của bạn</h6>
-        <div class="row mb-4">
-          <div class="col-md-6">
-            {{ form.best_choice.label_tag }}
-            {{ form.best_choice }}
-          </div>
-          <div class="col-md-6">
-            {{ form.second_choice.label_tag }}
-            {{ form.second_choice }}
-          </div>
-          <div class="col-md-6">
-            {{ form.third_choice.label_tag }}
-            {{ form.third_choice }}
-          </div>
-        </div>
-
-
-
         <h6 class="mb-3">Tùy chỉnh trọng số:</h6>
         <div class="row">
           {% for field in form %}
-            {% if field.name not in "address,radius,category,num_clusters, max_price, min_price, avg_revenue, rate, use_default_revenue, best_choice, second_choice, third_choice" %}
+            {% if field.name not in "address,radius,category,num_clusters, max_price, min_price" %}
               <div class="col-md-6 mb-3">
                 <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
                 <div class="d-flex align-items-center">
                   <input type="range" name="{{ field.name }}" id="{{ field.id_for_label }}"
-                        min="0" max="5" step="0.1" value="{{ field.value|default:1 }}" class="form-range me-3"
-                        oninput="document.getElementById('{{ field.name }}_val').innerText = this.value">
+                         min="0" max="5" step="0.1" value="{{ field.value|default:1 }}" class="form-range me-3"
+                         oninput="document.getElementById('{{ field.name }}_val').innerText = this.value">
                   <span class="badge bg-primary rounded-pill" id="{{ field.name }}_val">{{ field.value|default:1 }}</span>
                 </div>
               </div>
             {% endif %}
           {% endfor %}
         </div>
-        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold" id="submit_button"><i class="bi bi-search"></i> Phân Tích Ngay</button>
+        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold"><i class="bi bi-search"></i> Phân Tích Ngay</button>
       </form>
     </div>
   </div>
@@ -255,7 +141,6 @@
                 <tr>
                   <th>#</th>
                   <th>Tên Địa Điểm</th>
-                  <th>Doanh thu</th>
                   <th>Điểm</th>
                   <th>Cụm</th>
                 </tr>
@@ -278,215 +163,203 @@
     </div>
 
     <div class="card mt-4">
-        <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-pie-chart-fill"></i> Phân Tích Tổng Quan Các Cụm</h5>
+      <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-bar-chart-fill"></i> Biểu đồ cụm</h5>
+      </div>
+      <div class="card-body">
+        <canvas id="clusterCountChart" height="180"></canvas>
+        <hr>
+        <canvas id="clusterScoreChart" height="180"></canvas>
+        <div class="mt-3">
+          <strong>Kết luận:</strong>
+          <span id="clusterConclusion" class="text-primary"></span>
         </div>
-        <div class="card-body">
-            <canvas id="clusterAnalysisChart" height="150"></canvas>
-            <div class="mt-3 text-center text-muted">
-                <p class="mb-0">
-                    <span class="fw-bold">Trục X:</span> Điểm Trung Bình (Chất lượng) | 
-                    <span class="fw-bold">Trục Y:</span> Số Lượng Địa Điểm (Cạnh tranh) | 
-                    <span class="fw-bold">Kích thước bong bóng:</span> Doanh thu dự kiến (Tiềm năng)
-                </p>
-                <p><em><i class="bi bi-lightbulb"></i> Gợi ý: Cụm lý tưởng sẽ nằm ở góc dưới-phải với bong bóng lớn.</em></p>
-            </div>
-        </div>
-    </div>
-
-    <div class="card mt-4 border-success">
-        <div class="card-header bg-success bg-opacity-75 text-white">
-            <h5 class="mb-0"><i class="bi bi-trophy-fill"></i> Phân Tích & Đề Xuất Cụm Tốt Nhất</h5>
-        </div>
-        <div class="card-body">
-            <p id="mfdm-criteria" class="text-center text-muted fst-italic mb-4"></p>
-            
-            <div class="row align-items-center">
-                <div class="col-md-5 text-center">
-                    <h6 class="text-uppercase">Đề xuất hàng đầu</h6>
-                    <h1 class="display-1 fw-bolder text-success" id="best-cluster-id"></h1>
-                    <p class="lead">Là lựa chọn tiềm năng nhất dựa trên phân tích MFDM.</p>
-                </div>
-                <div class="col-md-7">
-                    <h5 class="mb-3">Thông số chi tiết của Cụm đề xuất:</h5>
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-calculator-fill text-primary me-2"></i> Điểm MFDM</span>
-                            <span class="badge bg-primary rounded-pill fs-6" id="best-cluster-mfdm"></span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-star-fill text-warning me-2"></i> Điểm trung bình</span>
-                            <span class="badge bg-secondary rounded-pill fs-6" id="best-cluster-score"></span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-cash-coin text-success me-2"></i> Doanh thu dự kiến</span>
-                            <span class="badge bg-secondary rounded-pill fs-6" id="best-cluster-revenue"></span>
-                        </li>
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><i class="bi bi-buildings-fill text-danger me-2"></i> Mức độ cạnh tranh</span>
-                            <span class="badge bg-secondary rounded-pill fs-6" id="best-cluster-venues"></span>
-                        </li>
-                    </ul>
-                </div>
-            </div>
-            
-            <hr class="my-4">
-
-            <div id="runner-up-section" style="display: none;">
-                <h6 class="text-center">Lựa chọn tiềm năng khác</h6>
-                <p class="text-center" id="runner-up-text"></p>
-            </div>
-        </div>
+      </div>
     </div>
 
     <script>
-        // Dữ liệu và cấu hình màu sắc
-        const data = {{ df|safe }};
-        const cluster_df = {{ cluster_df|safe }};
-        const baseClusterColors = ["#e6194B", "#3cb44b", "#ffe119", "#4363d8", "#f58231", "#911eb4", "#46f0f0", "#f032e6", "#bcf60c", "#fabebe"];
+      // Dữ liệu và cấu hình màu sắc
+      const data = {{ df|safe }};
+      const baseClusterColors = [
+        "#e6194B", // Đỏ tươi
+        "#3cb44b", // Xanh lá cây
+        "#ffe119", // Vàng
+        "#4363d8", // Xanh dương
+        "#f58231", // Cam
+        "#911eb4", // Tím
+        "#46f0f0", // Xanh cyan
+        "#f032e6", // Hồng magenta
+        "#bcf60c", // Xanh lá nhạt
+        "#fabebe"  // Hồng nhạt
+      ];
 
-        function generateColor(index) {
-            if (index < baseClusterColors.length) return baseClusterColors[index];
-            const hue = (index * 137.5) % 360;
-            return `hsl(${hue}, 70%, 50%)`;
+      // Hàm tạo màu bổ sung nếu cần nhiều hơn 10 cụm
+      function generateColor(index) {
+        if (index < baseClusterColors.length) {
+          return baseClusterColors[index];
         }
+        // Tạo màu HSL ngẫu nhiên nhưng có độ bão hòa và độ sáng tốt
+        const hue = (index * 137.5) % 360; // Sử dụng golden angle để phân bố đều
+        return `hsl(${hue}, 70%, 50%)`;
+      }
 
-        const maxCluster = Math.max(...data.map(d => d.cluster));
-        const clusterColors = Array.from({length: maxCluster + 1}, (_, i) => generateColor(i));
+      // Tạo mảng màu dựa trên số cụm thực tế
+      const maxCluster = Math.max(...data.map(d => d.cluster));
+      const clusterColors = Array.from({length: maxCluster + 1}, (_, i) => generateColor(i));
 
-        // --- Biểu đồ Bong bóng Phân tích Cụm ---
-        const bubbleChartData = cluster_df.map(d => ({
-            label: `Cụm ${d.cluster}`,
-            data: [{
-                x: d.average_score,
-                y: d.venue_count,
-                // Chia cho một hằng số để bán kính bong bóng hợp lý, có thể cần điều chỉnh
-                r: Math.max(d.forecasted_revenue / 10, 5) 
-            }],
-            backgroundColor: clusterColors[d.cluster % clusterColors.length] + 'B3', // Thêm alpha cho trong suốt
-            borderColor: clusterColors[d.cluster % clusterColors.length],
-            borderWidth: 2,
-        }));
+      // Tính toán dữ liệu cho biểu đồ
+      const clusterCounts = {};
+      const clusterScores = {};
 
-        const ctxBubble = document.getElementById('clusterAnalysisChart').getContext('2d');
-        new Chart(ctxBubble, {
-            type: 'bubble',
-            data: { datasets: bubbleChartData },
-            options: {
-                responsive: true,
-                plugins: {
-                    title: { display: false }, // Đã có tiêu đề trong card-header
-                    legend: { display: false }, // Không cần legend khi tooltip đã đủ rõ
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                const d = cluster_df[context.datasetIndex];
-                                return [
-                                    `${context.dataset.label}`,
-                                    `Điểm TB: ${d.average_score}`,
-                                    `Số địa điểm: ${d.venue_count}`,
-                                    `Doanh thu dự kiến: ${d.forecasted_revenue.toLocaleString('vi-VN')} triệu VND`
-                                ];
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Điểm Trung Bình (Chất lượng ↑)',
-                            font: { weight: 'bold' }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Số Lượng Địa Điểm (Cạnh tranh ↓)',
-                            font: { weight: 'bold' }
-                        }
-                    }
-                }
+      data.forEach(d => {
+        if (!clusterCounts[d.cluster]) {
+          clusterCounts[d.cluster] = 0;
+          clusterScores[d.cluster] = [];
+        }
+        clusterCounts[d.cluster]++;
+        clusterScores[d.cluster].push(d.score);
+      });
+
+      const clusterIds = Object.keys(clusterCounts);
+      const counts = clusterIds.map(id => clusterCounts[id]);
+      const avgScores = clusterIds.map(id => {
+        const scores = clusterScores[id];
+        return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      });
+
+      // Biểu đồ số lượng địa điểm theo cụm
+      const ctx1 = document.getElementById('clusterCountChart').getContext('2d');
+      new Chart(ctx1, {
+        type: 'bar',
+        data: {
+          labels: clusterIds.map(id => "Cụm " + id),
+          datasets: [{
+            label: 'Số lượng địa điểm',
+            data: counts,
+            backgroundColor: clusterIds.map(id => clusterColors[id % clusterColors.length])
+          }]
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: "Biểu đồ số lượng địa điểm của cụm"
             }
-        });
-
-        // --- Điền thông tin vào phần Kết luận ---
-        // Sắp xếp các cụm theo điểm MFDM giảm dần
-        const sortedClusters = [...cluster_df].sort((a, b) => b.MFDM_score - a.MFDM_score);
-        const bestCluster = sortedClusters[0];
-
-        // Lấy lựa chọn tiêu chí của người dùng
-        const bestChoiceEl = document.getElementById('id_best');
-        const secondChoiceEl = document.getElementById('id_second');
-        const thirdChoiceEl = document.getElementById('id_third');
-        const bestText = bestChoiceEl.options[bestChoiceEl.selectedIndex].text;
-        const secondText = secondChoiceEl.options[secondChoiceEl.selectedIndex].text;
-        const thirdText = thirdChoiceEl.options[thirdChoiceEl.selectedIndex].text;
-
-        document.getElementById('mfdm-criteria').innerText = `Áp dụng MFDM dựa trên ưu tiên: ${bestText} > ${secondText} > ${thirdText}`;
-        
-        if (bestCluster) {
-            document.getElementById('best-cluster-id').innerText = `Cụm ${bestCluster.cluster}`;
-            document.getElementById('best-cluster-mfdm').innerText = bestCluster.MFDM_score.toFixed(2);
-            document.getElementById('best-cluster-score').innerText = `${bestCluster.average_score.toFixed(2)} / 100`;
-            document.getElementById('best-cluster-revenue').innerText = `${bestCluster.forecasted_revenue.toLocaleString('vi-VN')} triệu`;
-            document.getElementById('best-cluster-venues').innerText = `${bestCluster.venue_count} địa điểm`;
+          },
+          scales: { y: { beginAtZero: true } }
         }
+      });
 
-        // Hiển thị cụm tiềm năng thứ hai (nếu có)
-        if (sortedClusters.length > 1) {
-            const runnerUp = sortedClusters[1];
-            const runnerUpText = `Ngoài ra, <strong>Cụm ${runnerUp.cluster}</strong> cũng là một lựa chọn đáng cân nhắc với điểm MFDM là <strong>${runnerUp.MFDM_score.toFixed(2)}</strong>.`;
-            document.getElementById('runner-up-text').innerHTML = runnerUpText;
-            document.getElementById('runner-up-section').style.display = 'block';
+      // Biểu đồ điểm trung bình theo cụm
+      const ctx2 = document.getElementById('clusterScoreChart').getContext('2d');
+      new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: clusterIds.map(id => "Cụm " + id),
+          datasets: [{
+            label: 'Điểm trung bình',
+            data: avgScores,
+            backgroundColor: clusterIds.map(id => clusterColors[id % clusterColors.length])
+          }]
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: "Biểu đồ điểm trung bình của cụm"
+            }
+          },
+          scales: { y: { beginAtZero: true, max: 100 } }
         }
+      });
 
-        // --- Khởi tạo Bản đồ và Bảng (giữ nguyên logic cũ) ---
-        const centerLat = {{ center_lat }};
-        const centerLon = {{ center_lon }};
-        const searchRadius = {{ radius }};
-        const map = L.map('map').setView([centerLat, centerLon], 14);
+      // Kết luận về cụm nên chọn
+      const minIndex = counts.indexOf(Math.min(...counts));
+      const suggested = clusterIds[minIndex];
+      document.getElementById('clusterConclusion').innerText = "Cụm " + suggested + " có ít địa điểm nhất → nên chọn cụm này.";
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      // Khởi tạo bản đồ
+      const centerLat = {{ center_lat }};
+      const centerLon = {{ center_lon }};
+      const searchRadius = {{ radius }};
+      const map = L.map('map').setView([centerLat, centerLon], 14);
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      L.circle([centerLat, centerLon], {
+        color: '#0d6efd',
+        fillColor: '#0d6efd',
+        fillOpacity: 0.1,
+        radius: searchRadius
+      }).addTo(map).bindPopup("<b>Trung tâm tìm kiếm</b>").openPopup();
+
+      // Heatmap
+      const heatData = data.map(d => [d.lat, d.lon, d.score / 100]);
+      L.heatLayer(heatData, { radius: 25, blur: 15, maxZoom: 17, gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'} }).addTo(map);
+
+      // Markers và bảng
+      const tbody = document.querySelector("table tbody");
+      const markers = [];
+      let activeMarker = null;
+
+      data.forEach((d, index) => {
+        const color = d.hasOwnProperty('cluster') ? clusterColors[d.cluster % clusterColors.length] : '#808080';
+
+        const marker = L.circleMarker([d.lat, d.lon], {
+          radius: 8,
+          fillColor: color,
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9
         }).addTo(map);
 
-        L.circle([centerLat, centerLon], {
-            color: '#0d6efd', fillColor: '#0d6efd', fillOpacity: 0.1, radius: searchRadius
-        }).addTo(map).bindPopup("<b>Trung tâm tìm kiếm</b>").openPopup();
+        marker.bindPopup(`
+            <h5>${d.name}</h5>
+            <hr class="my-1">
+            <p class="mb-1"><strong>Điểm:</strong> <span class="badge" style="background-color:${color};">${d.score}</span></p>
+            <p class="mb-1"><strong>Đối thủ:</strong> ${d.competitors}</p>
+            <p class="mb-0"><em>${d.address}</em></p>
+        `);
 
-        const heatData = data.map(d => [d.lat, d.lon, d.score / 100]);
-        L.heatLayer(heatData, { radius: 25, blur: 15, maxZoom: 17, gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'} }).addTo(map);
+        markers.push(marker);
 
-        const tbody = document.querySelector("table tbody");
-        const markers = [];
-        let activeMarker = null;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><b>${index + 1}</b></td>
+          <td>${d.name}</td>
+          <td><span class="badge" style="background-color:${color};">${d.score}</span></td>
+          <td>${d.hasOwnProperty('cluster') ? `Cụm ${d.cluster}` : '-'}</td>
+        `;
+        tbody.appendChild(tr);
 
-        data.forEach((d, index) => {
-            const color = d.hasOwnProperty('cluster') ? clusterColors[d.cluster % clusterColors.length] : '#808080';
-            const marker = L.circleMarker([d.lat, d.lon], {
-                radius: 8, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9
-            }).addTo(map);
+        tr.addEventListener('click', () => {
+          document.querySelectorAll('tbody tr').forEach(row => {
+            row.classList.remove('table-active-row');
+          });
+          tr.classList.add('table-active-row');
 
-            marker.bindPopup(`<h5>${d.name}</h5><hr class="my-1"><p class="mb-1"><strong>Điểm:</strong> <span class="badge" style="background-color:${color};">${d.score}</span></p><p class="mb-1"><strong>Đối thủ:</strong> ${d.competitors}</p><p class="mb-1"><strong>Doanh thu trong tháng (dự kiến):</strong> ${d.estimated_revenue} triệu VND</p><p class="mb-0"><em>${d.address}</em></p>`);
-            markers.push(marker);
-
-            const tr = document.createElement("tr");
-            tr.innerHTML = `<td><b>${index + 1}</b></td><td>${d.name}</td><td>${d.estimated_revenue}</td><td><span class="badge" style="background-color:${color};">${d.score}</span></td><td>${d.hasOwnProperty('cluster') ? `Cụm ${d.cluster}` : '-'}</td>`;
-            tbody.appendChild(tr);
-
-            tr.addEventListener('click', () => {
-                document.querySelectorAll('tbody tr').forEach(row => row.classList.remove('table-active-row'));
-                tr.classList.add('table-active-row');
-                if (activeMarker) { activeMarker.setStyle({ radius: 8, weight: 2, color: '#fff' }); }
-                marker.setStyle({ radius: 12, weight: 4, color: '#0d6efd' });
-                marker.openPopup();
-                map.setView(marker.getLatLng(), 15);
-                activeMarker = marker;
+          if (activeMarker) {
+            activeMarker.setStyle({
+              radius: 8,
+              weight: 2,
+              color: '#fff'
             });
+          }
+
+          marker.setStyle({
+            radius: 12,
+            weight: 4,
+            color: '#0d6efd'
+          });
+          marker.openPopup();
+          map.setView(marker.getLatLng(), 15);
+
+          activeMarker = marker;
         });
+      });
     </script>
   {% elif request.method == 'POST' %}
     <div class="alert alert-warning text-center" role="alert">
