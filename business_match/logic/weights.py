@@ -139,7 +139,7 @@ BUSINESS_SPECIFIC_WEIGHTS = {
     }
 }
 
-# Market condition modifiers
+# Market condition modifiers Điều kiện thị trường hiện tại
 MARKET_CONDITION_MODIFIERS = {
     "high_growth": {
         "market_potential": 1.3,
@@ -158,7 +158,7 @@ MARKET_CONDITION_MODIFIERS = {
     }
 }
 
-# Location type modifiers
+# Location type modifiers Vị trí (trung tâm hay ngoại ô ...)
 LOCATION_TYPE_MODIFIERS = {
     "city_center": {
         "transport": 1.3,
